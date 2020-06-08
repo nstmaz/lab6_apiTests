@@ -6,8 +6,11 @@ import com.volsu.api.User;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
+import org.json.JSONObject;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.Random;
 
 import static io.restassured.RestAssured.given;
 import static io.restassured.RestAssured.when;
@@ -32,34 +35,40 @@ public class ApiNegativeTests {
                         "Bearer " + EndPoints.token);
     }
 
-    // 1. GET /public-api/users
-    // без указания токена авторизации и с некорректным токеном
+    // 1.1 GET /public-api/users
+    // без указания токена авторизации
     @Test
     public void testNoToken() {
-        when().
-                get(EndPoints.users).
-                then()
+        when()
+                .get(EndPoints.users)
+                .then()
                 .assertThat()
-                .log().all().
-                body("_meta.code", equalTo(401)).
-                body("_meta.message", equalTo(ErrorMsg.getErr401Msg()));
+                .log().all()
+                .body("_meta.code", equalTo(401))
+                .body("_meta.message", equalTo(ErrorMsg.getErr401Msg()));
     }
 
-    // 1. GET /public-api/users
+    // 1.2 GET /public-api/users
     // с некорректным токеном
     @Test
-    public void testWrongToken() {
-        given().
-                contentType(ContentType.JSON)
+    public void testInvalidToken() {
+        Random rnd = new Random();
+        int invalidTokenLength = rnd.nextInt(EndPoints.token.length());
+
+        given()
+                .contentType(ContentType.JSON)
+
+                // generate random string instead of valid token
+                // its length is between 0 and real token length
                 .header("Authorization",
-                        "Bearer " + EndPoints.token + "abcd").
-                when().
-                get(EndPoints.users).
-                then()
+                        "Bearer " + User.generateRandomString(invalidTokenLength))
+                .when()
+                .get(EndPoints.users)
+                .then()
                 .assertThat()
-                .log().all().
-                body("_meta.code", equalTo(401)).
-                body("_meta.message", equalTo(ErrorMsg.getErr401Msg()));
+                .log().all()
+                .body("_meta.code", equalTo(401))
+                .body("_meta.message", equalTo(ErrorMsg.getErr401Msg()));
     }
 
     // POST /public-api/users с некорректным форматом тела запроса
@@ -82,17 +91,16 @@ public class ApiNegativeTests {
 
     // DELETE /public-api/users
     @Test
-    public void testDeleteInvalidUser() {
+    public void testDeleteUser() {
 
-        int id = 0;
         given()
                 .spec(requestSpec)
                 .when()
-                .delete(EndPoints.usersWithID(id))
+                .delete(EndPoints.users)
                 .then()
                 .assertThat()
-                .body("_meta.code", equalTo(404))
-                .body("_meta.message", equalTo(ErrorMsg.getErr404Msg()))
+                .body("_meta.code", equalTo(405))
+                .body("_meta.message", equalTo(ErrorMsg.getErr405Msg()))
                 .log().all();
     }
 }
